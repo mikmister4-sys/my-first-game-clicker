@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Рабочий Кликер</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: sans-serif;
+            background-color: #1a1a1a;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            transition: background 1s;
+        }
+
+        /* ТЕМЫ Окружения */
+        body.stage-1 { background-color: #1a1a1a; } /* Космос */
+        body.stage-2 { background-color: #2c3e50; } /* Лаборатория */
+        body.stage-3 { background-color: #27ae60; } /* Лес */
+        body.stage-4 { background-color: #8e44ad; } /* Магия */
+
+        #game {
+            display: flex;
+            flex-direction: row;
+            height: 100%;
+        }
+
+        .left {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-right: 2px solid #333;
+        }
+
+        .right {
+            width: 320px;
+            padding: 20px;
+            background: rgba(0,0,0,0.5);
+            overflow-y: auto;
+        }
+
+        #big-button {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            background: #e74c3c;
+            border: 10px solid #c0392b;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            cursor: pointer;
+            outline: none;
+            box-shadow: 0 10px 0 #962d22;
+        }
+
+        #big-button:active {
+            transform: translateY(5px);
+            box-shadow: 0 5px 0 #962d22;
+        }
+
+        .score-display {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        #money { font-size: 48px; color: #f1c40f; }
+
+        .upgrade {
+            background: #333;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            border: 1px solid #444;
+        }
+
+        .upgrade:hover { background: #444; }
+        .upgrade.locked { opacity: 0.5; cursor: not-allowed; }
+
+        .upgrade b { display: block; font-size: 18px; }
+        .price { color: #f1c40f; font-weight: bold; }
+
+        @media (max-width: 600px) {
+            #game { flex-direction: column; }
+            .right { width: auto; height: 50%; }
+        }
+    </style>
+</head>
+<body class="stage-1">
+
+<div id="game">
+    <div class="left">
+        <div class="score-display">
+            <div id="location">Локация: Космос</div>
+            <div id="money">0</div>
+            <div id="stats">Клик: 1 | Авто: 0/сек</div>
+        </div>
+        <button id="big-button" onclick="doClick()">ЖМИ!</button>
+    </div>
+
+    <div class="right">
+        <h3>Улучшения</h3>
+        
+        <div class="upgrade" onclick="buyClick()">
+            <b>💪 Сила клика (+1)</b>
+            <span class="price">Цена: <span id="c-cost">50</span></span>
+        </div>
+
+        <hr>
+        <h3>Авто-доход</h3>
+
+        <div class="upgrade" onclick="buyAuto(0)">
+            <b>🤖 Робот-помощник</b>
+            Доход: +1/сек | <span class="price">Цена: <span id="a-cost-0">15</span></span>
+            <div>Всего: <span id="a-count-0">0</span></div>
+        </div>
+
+        <div class="upgrade" onclick="buyAuto(1)">
+            <b>🏭 Маленькая фабрика</b>
+            Доход: +5/сек | <span class="price">Цена: <span id="a-cost-1">100</span></span>
+            <div>Всего: <span id="a-count-1">0</span></div>
+        </div>
+
+        <div class="upgrade" onclick="buyAuto(2)">
+            <b>🚀 Космическая станция</b>
+            Доход: +20/сек | <span class="price">Цена: <span id="a-cost-2">1000</span></span>
+            <div>Всего: <span id="a-count-2">0</span></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Состояние игры
+    let money = 0;
+    let clickPower = 1;
+    let autoPower = 0;
+    let clickPrice = 50;
+
+    const autos = [
+        { name: "Робот", cost: 15, income: 1, count: 0 },
+        { name: "Фабрика", cost: 100, income: 5, count: 0 },
+        { name: "Станция", cost: 1000, income: 20, count: 0 }
+    ];
+
+    // Звуки через встроенный синтезатор
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    function playNote(freq, type, len) {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = type;
+        osc.frequency.value = freq;
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        gain.gain.exponentialRampToValueAtTime(0.00001, ctx.currentTime + len);
+        osc.stop(ctx.currentTime + len);
+    }
+
+    // Клик
+    function doClick() {
+        money += clickPower;
+        playNote(440 + Math.random() * 100, 'sine', 0.1);
+        updateUI();
+    }
+
+    // Покупка силы клика
+    function buyClick() {
+        if (money >= clickPrice) {
+            money -= clickPrice;
+            clickPower += 1;
+            clickPrice = Math.round(clickPrice * 1.8);
+            playNote(660, 'square', 0.2);
+            updateUI();
+        }
+    }
+
+    // Покупка автокликера
+    function buyAuto(id) {
+        let item = autos[id];
+        if (money >= item.cost) {
+            money -= item.cost;
+            item.count++;
+            autoPower += item.income;
+            item.cost = Math.round(item.cost * 1.2);
+            playNote(880, 'triangle', 0.3);
+            updateUI();
+        }
+    }
+
+    // Обновление экрана
+    function updateUI() {
+        document.getElementById('money').innerText = Math.floor(money);
+        document.getElementById('stats').innerText = `Клик: ${clickPower} | Авто: ${autoPower}/сек`;
+        
+        document.getElementById('c-cost').innerText = clickPrice;
+
+        for (let i = 0; i < autos.length; i++) {
+            document.getElementById('a-cost-' + i).innerText = autos[i].cost;
+            document.getElementById('a-count-' + i).innerText = autos[i].count;
+        }
+
+        // Смена окружения
+        const body = document.body;
+        const loc = document.getElementById('location');
+        if (money >= 1000) {
+            body.className = "stage-4";
+            loc.innerText = "Локация: Магический мир";
+        } else if (money >= 500) {
+            body.className = "stage-3";
+            loc.innerText = "Локация: Зеленый лес";
+        } else if (money >= 100) {
+            body.className = "stage-2";
+            loc.innerText = "Локация: Лаборатория";
+        } else {
+            body.className = "stage-1";
+            loc.innerText = "Локация: Космос";
+        }
+    }
+
+    // Авто-доход (раз в секунду)
+    setInterval(() => {
+        if (autoPower > 0) {
+            money += autoPower;
+            updateUI();
+        }
+    }, 1000);
+
+</script>
+
+</body>
+</html>
